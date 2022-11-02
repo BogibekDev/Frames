@@ -5,10 +5,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.View
+import android.widget.MediaController
 import android.widget.Toast
+import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -19,6 +22,8 @@ import dev.bogibek.frames.utils.URIPathHelper
 
 class MainActivity : AppCompatActivity() {
     private val PERMISSION_REQUESTS_CODE = 123
+    private lateinit var videoView: VideoView
+    private val DURATION_LIMIT = 10 //10second
     private var list: ArrayList<Frame> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,6 +32,18 @@ class MainActivity : AppCompatActivity() {
         if (!allPermissionsGranted()) {
             getRuntimePermissions()
         }
+        initViews()
+    }
+
+    private fun initViews() {
+        videoView = findViewById(R.id.video_view)
+        setController()
+    }
+
+    private fun setController() {
+        val mediaController = MediaController(this)
+        mediaController.setAnchorView(videoView)
+        videoView.setMediaController(mediaController)
     }
 
     private var resultLauncher =
@@ -37,12 +54,45 @@ class MainActivity : AppCompatActivity() {
                 if (dataUri != null) {
                     val uriPathHelper = URIPathHelper()
                     val videoInputPath = uriPathHelper.getPath(this, dataUri).toString()
+                    startVideo(dataUri)
                     getFrame(videoInputPath)
                 } else {
                     Toast.makeText(this, "Video input error!", Toast.LENGTH_LONG).show()
                 }
             }
         }
+
+    private fun startVideo(dataUri: Uri) {
+        videoView.setVideoURI(dataUri)
+        setDimension()//this is optional
+        videoView.start()
+    }
+
+    private fun setDimension() {
+        // Adjust the size of the video
+        // so it fits on the screen
+        val videoProportion = getVideoProportion()
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        val screenProportion = screenHeight.toFloat() / screenWidth.toFloat()
+        val lp = videoView.layoutParams
+        if (videoProportion < screenProportion) {
+            lp.height = screenHeight
+            lp.width = (screenHeight.toFloat() / videoProportion).toInt()
+        } else {
+            lp.width = screenWidth
+            lp.height = (screenWidth.toFloat() * videoProportion).toInt()
+        }
+        videoView.layoutParams = lp
+    }
+
+    // This method gets the proportion of the video that you want to display.
+    // I already know this ratio since my video is hardcoded, you can get the
+    // height and width of your video and appropriately generate  the proportion
+    //    as :height/width
+    private fun getVideoProportion(): Float {
+        return 1.5f
+    }
 
 
     fun recordVideo(view: View) {
@@ -55,7 +105,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecord() {
-        val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+        val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE).also {
+            it.putExtra(MediaStore.EXTRA_DURATION_LIMIT, DURATION_LIMIT)
+        }
+
         resultLauncher.launch(intent)
     }
 
