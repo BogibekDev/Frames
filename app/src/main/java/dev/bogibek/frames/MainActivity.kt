@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startVideo(dataUri: Uri) {
         videoView.setVideoURI(dataUri)
-        setDimension()//this is optional
+        setDimension()  //this is optional
         videoView.start()
     }
 
